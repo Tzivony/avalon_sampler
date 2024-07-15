@@ -6,7 +6,7 @@ module avalon_sampler #(
 	input logic rst_n,  // Asynchronous reset active low
 	
 	avalon_st_if.slave  msg_in,
-	avalon_st_if.master msg_out,
+	avalon_st_if.master msg_out
 );
 	// Assertions
 	initial begin
@@ -21,13 +21,11 @@ module avalon_sampler #(
 		end
 
 		if (CAPACITY == 1) begin
-			$warning("CAPACITY == 1 results in a half-rate sampler, meaning this module can cut down throughput by up to 50\%.\n
-If this is intentional, set parameter SUPPRESS_WARNING to '1'");
+			$warning("CAPACITY == 1 results in a half-rate sampler, meaning this module can cut down throughput by up to 50%%.\nIf this is intentional, set parameter SUPPRESS_WARNING to '1'");
 		end
 
 		if (CAPACITY > 16) begin
-			$warning("For larger data capacities, it is advised you use a dedicated FIFO module.\n
-If this is intentional, set parameter SUPPRESS_WARNING to '1'");
+			$warning("For larger data capacities, it is advised you use a dedicated FIFO module.\nIf this is intentional, set parameter SUPPRESS_WARNING to '1'");
 		end
 	end
 
@@ -43,7 +41,9 @@ If this is intentional, set parameter SUPPRESS_WARNING to '1'");
 
 	logic [CAPACITY-1:0] load_en;
 
-	// Logic
+	genvar i;
+
+generate // Logic
 	begin : conc
 		assign payload_in = {msg_in.data, msg_in.empty, msg_in.sop, msg_in.eop};
 		assign {msg_out.data, msg_out.empty, msg_out.sop, msg_out.eop} = payload_out;
@@ -67,29 +67,28 @@ If this is intentional, set parameter SUPPRESS_WARNING to '1'");
 		assign msg_in.rdy  = one_hot[CAPACITY];
 		assign msg_out.vld = one_hot[0];
 	end
-
-	begin : payload_sr		
+	
+	begin : payload_sr
 		assign load_en = {CAPACITY{in_tran}} & (~one_hot >> out_tran); // As we actually want to write into the previous index if reading occours
 
-		generate
-			for (int i = 0; i < PAYLOAD_WIDTH; i++) begin
-				_shift_reg #(.REG_WIDTH(CAPACITY)) i_shift_reg (
-					.clk      (clk           ),
-					.rst_n    (rst_n         ),
-					.load_data(payload_in[i] ),
-					.load_en  (load_en       ),
-					.sh       (out_tran      ),
-					.data_out (payload_out[i])    // This should take only the LSB bit of the shift-register
-				);
-			end
-		endgenerate
+		for (i = 0; i < PAYLOAD_WIDTH; i++) begin
+			_shift_reg #(.REG_WIDTH(CAPACITY)) i_shift_reg (
+				.clk      (clk           ),
+				.rst_n    (rst_n         ),
+				.load_data(payload_in[i] ),
+				.load_en  (load_en       ),
+				.sh       (out_tran      ),
+				.data_out (payload_out[i])    // This should take only the LSB bit of the shift-register
+			);
+		end
 	end
 
+endgenerate
 endmodule : avalon_sampler
 
 
 module _shift_reg #(
-	parameter unsigned int REG_WIDTH
+	parameter int unsigned REG_WIDTH
 ) (
 	input logic clk,    // Clock
 	input logic rst_n,  // Asynchronous reset active low
@@ -102,12 +101,13 @@ module _shift_reg #(
 );
 	
 	always_ff @(posedge clk or negedge rst_n) begin
-		if(~rst_n) begin
+		if(~rst_n)
 			data_out[REG_WIDTH] <= 1'b0;
 	end
 
+	genvar i;
 	generate
-		for (int i = 0; i < REG_WIDTH; i++) begin
+		for (i = 0; i < REG_WIDTH; i++) begin
 			always_ff @(posedge clk or negedge rst_n) begin
 				if(~rst_n) begin
 					data_out[i] <= 1'b0;
@@ -126,7 +126,7 @@ endmodule : _shift_reg
 
 
 module _one_hot #(
-	parameter unsigned int ONEHOT_WIDTH,
+	parameter int unsigned ONEHOT_WIDTH,
 	parameter bit POLARITY = 1'b1 // i.e. one-hot shifts around a '1' value by default
 ) (
 	input logic clk,    // Clock
