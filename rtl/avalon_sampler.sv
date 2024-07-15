@@ -69,3 +69,35 @@ module _shift_reg #(
 	endgenerate
 
 endmodule : _shift_reg
+
+module _one_hot #(
+	parameter unsigned int ONEHOT_WIDTH,
+	parameter bit POLARITY = 1'b1
+) (
+	input logic clk,    // Clock
+	input logic rst_n,  // Asynchronous reset active low
+	
+	input logic inc,
+	input logic dec,
+
+	output logic [ONEHOT_WIDTH-1:0] data_out
+);
+
+	always_ff @(posedge clk or negedge rst_n) begin
+		if(~rst_n) begin
+			data_out[0] <= POLARITY;
+			data_out[ONEHOT_WIDTH-1:1] <= {(ONEHOT_WIDTH-1){~POLARITY}};
+		end else begin
+			if (inc & ~dec) begin
+				data_out <= data_out << 1;
+				data_out[0] <= ~POLARITY;
+			end
+
+			if (~inc & dec) begin
+				data_out <= data_out >> 1;
+				data_out[ONEHOT_WIDTH-1] <= ~POLARITY;
+			end
+		end
+	end
+
+endmodule : _one_hot
